@@ -7,7 +7,6 @@ app = Flask(__name__)
 # Load models
 stream_model = joblib.load("stream_model.pkl")
 admission_model = joblib.load("admission_model.pkl")
-scaler = joblib.load("scaler.pkl")
 
 @app.route("/")
 def home():
@@ -34,6 +33,7 @@ def predict_stream():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+
 # ADMISSION PREDICTION
 @app.route("/predict_admission", methods=["POST"])
 def predict_admission():
@@ -45,14 +45,13 @@ def predict_admission():
             float(data["score_cutoff_difference"])
         ]])
 
-        features_scaled = scaler.transform(features)
-
-        prediction = admission_model.predict(features_scaled)[0]
+        prediction = admission_model.predict(features)[0]
 
         return jsonify({"admission_chance": int(prediction)})
 
     except Exception as e:
         return jsonify({"error": str(e)})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
