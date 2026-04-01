@@ -1,7 +1,3 @@
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
 @app.route("/predict_stream", methods=["POST"])
 def predict_stream():
     try:
@@ -10,39 +6,20 @@ def predict_stream():
         quantitative = float(data["quantitative_score"])
         verbal = float(data["verbal_score"])
         logical = float(data["logical_score"])
+        creative = float(data["creative_score"])
+        technical = float(data["technical_score"])
 
-        if quantitative > 70:
+        # Improved logic using all 5 features
+        if technical > 70 or quantitative > 70:
             stream = "Engineering"
-        elif verbal > 70:
+        elif creative > 65:
             stream = "Arts"
-        else:
+        elif verbal > 60:
             stream = "Commerce"
+        else:
+            stream = "General"
 
         return jsonify({"recommended_stream": stream})
 
     except Exception as e:
         return jsonify({"error": str(e)})
-
-
-@app.route("/predict_admission", methods=["POST"])
-def predict_admission():
-    try:
-        data = request.json
-
-        percentage = float(data["aggregate_percentage"])
-        cutoff_diff = float(data["score_cutoff_difference"])
-
-        if percentage >= 75 and cutoff_diff <= 5:
-            result = "High Chance"
-        else:
-            result = "Low Chance"
-
-        return jsonify({"admission_prediction": result})
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
-
-@app.route("/")
-def home():
-    return "API is running!"
