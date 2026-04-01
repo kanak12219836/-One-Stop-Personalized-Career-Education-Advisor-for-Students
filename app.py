@@ -1,57 +1,48 @@
-import joblib
-import numpy as np
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Load models
-stream_model = joblib.load("stream_model.pkl")
-admission_model = joblib.load("admission_model.pkl")
-
-@app.route("/")
-def home():
-    return "ML Career Advisor API is running!"
-
-# STREAM PREDICTION
 @app.route("/predict_stream", methods=["POST"])
 def predict_stream():
     try:
         data = request.json
 
-        features = np.array([[
-            float(data["quantitative_score"]),
-            float(data["logical_score"]),
-            float(data["verbal_score"]),
-            float(data["creative_score"]),
-            float(data["technical_score"])
-        ]])
+        quantitative = float(data["quantitative_score"])
+        verbal = float(data["verbal_score"])
+        logical = float(data["logical_score"])
 
-        prediction = stream_model.predict(features)[0]
+        if quantitative > 70:
+            stream = "Engineering"
+        elif verbal > 70:
+            stream = "Arts"
+        else:
+            stream = "Commerce"
 
-        return jsonify({"recommended_stream": str(prediction)})
+        return jsonify({"recommended_stream": stream})
 
     except Exception as e:
         return jsonify({"error": str(e)})
 
 
-# ADMISSION PREDICTION
 @app.route("/predict_admission", methods=["POST"])
 def predict_admission():
     try:
         data = request.json
 
-        features = np.array([[
-            float(data["aggregate_percentage"]),
-            float(data["score_cutoff_difference"])
-        ]])
+        percentage = float(data["aggregate_percentage"])
+        cutoff_diff = float(data["score_cutoff_difference"])
 
-        prediction = admission_model.predict(features)[0]
+        if percentage >= 75 and cutoff_diff <= 5:
+            result = "High Chance"
+        else:
+            result = "Low Chance"
 
-        return jsonify({"admission_chance": int(prediction)})
+        return jsonify({"admission_prediction": result})
 
     except Exception as e:
         return jsonify({"error": str(e)})
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+@app.route("/")
+def home():
+    return "API is running!"
