@@ -1,57 +1,97 @@
-import pandas as pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import pandas as pd
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)   # ✅ Enable CORS
 
-# Load dataset
-df = pd.read_csv("colleges.csv")
 
-@app.route('/')
+# 📂 Load datasets (ensure these files are in your project folder)
+colleges_df = pd.read_csv("colleges_dataset_1.csv")
+students_df = pd.read_csv("_students_with_college.csv")
+
+
+@app.route("/")
 def home():
-    return "🚀 Flask App is Running Successfully!"
+    return "Career & College Recommendation API Running 🚀"
 
-@app.route('/analyze', methods=['POST'])
-def analyze():
-    data = request.get_json()
 
-    quantitative = data.get("quantitative_score", 0)
-    verbal = data.get("verbal_score", 0)
-    logical = data.get("logical_score", 0)
-    creative = data.get("creative_score", 0)
-    technical = data.get("technical_score", 0)
+@app.route("/predict", methods=["POST"])
+def predict():
+    try:
+        data = request.get_json()
 
-    aggregate = (quantitative + verbal + logical + creative + technical) / 5
+        # 🎯 Get input scores
+        quantitative = data.get("quantitative_score", 0)
+        verbal = data.get("verbal_score", 0)
+        logical = data.get("logical_score", 0)
+        creative = data.get("creative_score", 0)
+        technical = data.get("technical_score", 0)
 
-    # Career logic
-    if technical > 80 and logical > 70:
-        career = "Engineering"
-        filtered = df[df["stream"] == "Engineering"]
+        # 🧮 Calculate average
+        avg = (quantitative + verbal + logical + creative + technical) / 5
 
-    elif creative > 80:
-        career = "Design"
-        filtered = df[df["stream"] == "Design"]
+        # 📊 Performance label
+        if avg >= 80:
+            performance = "Excellent"
+        elif avg >= 60:
+            performance = "Good"
+        elif avg >= 40:
+            performance = "Average"
+        else:
+            performance = "Needs Improvement"
 
-    elif verbal > 70:
-        career = "Management"
-        filtered = df[df["stream"] == "Management"]
+        # 🔍 STEP 1: Find similar students (±5 range)
+        similar_students = students_df[
+            (students_df["avg_score"] >= avg - 5) &
+            (students_df["avg_score"] <= avg + 5)
+        ]
 
-    else:
-        career = "General"
-        filtered = df
+        # ❗ If no similar students found
+        if similar_students.empty:
+            return jsonify({
+                "performance": performance,
+                "average_score": avg,
+                "message": "No similar students found"
+            })
 
-    # Filter by cutoff
-    recommended = filtered[filtered["cutoff"] <= aggregate]
+        # 🎓 STEP 2: Get unique colleges from similar students
+        recommended_college_names = similar_students["college_name"].dropna().unique()
 
-    # Top 5 colleges
-    colleges = recommended["college_name"].head(5).tolist()
+        # 🔍 STEP 3: Match with colleges dataset
+        final_colleges = colleges_df[
+            colleges_df["college_name"].isin(recommended_college_names)
+        ]
 
-    response = {
-        "message": "Analysis Complete",
-        "aggregate_percentage": aggregate,
-        "recommended_career": career,
-        "recommended_colleges": colleges
-    }
+        # ❗ If no colleges matched
+        if final_colleges.empty:
+            return jsonify({
+                "performance": performance,
+                "average_score": avg,
+                "message": "No college recommendations found"
+            })
 
-    return jsonify(response)
+        # 📌 STEP 4: Sort (optional: by cutoff if exists)
+        if "cutoff" in final_colleges.columns:
+            final_colleges = final_colleges.sort_values(by="cutoff", ascending=False)
+
+        # 🔝 Top 5 recommendations
+        top_colleges = final_colleges.head(5)
+
+        # 📦 Convert to JSON
+        recommendations = top_colleges.to_dict(orient="records")
+
+        return jsonify({
+            "performance": performance,
+            "average_score": avg,
+            "recommended_colleges": recommendations
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error": str(e)
+        })
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
